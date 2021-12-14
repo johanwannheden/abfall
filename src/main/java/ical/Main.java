@@ -1,12 +1,16 @@
 package ical;
 
+import java.awt.Desktop;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -14,9 +18,6 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import lombok.Builder;
-import lombok.Data;
 
 enum Abfall {
     GRUENABFUHR("Grünabfuhr"), PAPIER("Papier"), GLAS("Glas"), DEPONIE("Deponie"), METALL("Metall");
@@ -34,8 +35,8 @@ enum Abfall {
 
 public class Main {
 
-    //"http://www.muri-guemligen.ch/fileadmin/muriguemligench/02_Verwaltung/Bauverwaltung/Umwelt/Energiefachstelle/Entsorgungskalender_2021_Deutsch.pdf";
-    private static final String SOURCE_PDF = "https://tinyurl.com/y35gz9rm";
+    //"http://www.muri-guemligen.ch/fileadmin/muriguemligench/02_Verwaltung/Bauverwaltung/Umwelt/Energiefachstelle/Entsorgungskalender_2021_Deutsch.pdf"
+    private static final String SOURCE_PDF = "https://tinyurl.com/...";
 
     private static final Map<Abfall, String> ABFALL_TO_FILE = Map.of(//
             Abfall.GRUENABFUHR, "gruenabfuhr.properties",//
@@ -48,14 +49,14 @@ public class Main {
     public static void main(String[] args) throws IOException {
         var path = Files.createTempFile("abfall-", ".ics");
 
-        List<String> events = Arrays.stream(Abfall.values()).flatMap(Main::getAbfallEvents).collect(Collectors.toList());
+        List<String> events = Arrays.stream(Abfall.values()).flatMap(Main::getAbfallEvents).toList();
         var calendar = generateCalendar(events);
 
         Files.writeString(path, calendar);
-        System.out.println(calendar);
-        System.out.println(LocalTime.now());
+//        System.out.println(calendar);
+//        System.out.println(LocalTime.now());
         System.out.println(path);
-//        Desktop.getDesktop().open(path.toFile());
+        Desktop.getDesktop().open(path.toFile());
     }
 
     static Stream<String> getAbfallEvents(Abfall kind) {
@@ -72,16 +73,29 @@ public class Main {
             p.load(Main.class.getResourceAsStream("/" + ABFALL_TO_FILE.get(kind)));
             return p.entrySet()
                     .stream()
-                    .flatMap(e -> getDate((String) e.getKey(), (String) e.getValue()).stream())
+                    .flatMap(e -> getDate(kind, Month.of(Integer.parseInt((String) e.getKey())), (String) e.getValue()).stream())
                     .collect(Collectors.toSet());
         } catch (IOException e) {
             throw new RuntimeException("Failed reading Abfall dates", e);
         }
     }
 
-    private static Set<LocalDate> getDate(String month, String listOfDays) {
-        var days = Arrays.stream(listOfDays.split(",")).distinct().map(Integer::parseInt).collect(Collectors.toList());
-        return days.stream().map(d -> LocalDate.of(2021, Integer.parseInt(month), d)).collect(Collectors.toSet());
+    private static Set<LocalDate> getDate(Abfall kind, Month month, String listOfDays) {
+        if (kind == Abfall.GRUENABFUHR && (month.getValue() > 2 || month.getValue() < 12)) {
+            var result = new HashSet<LocalDate>();
+            var current = LocalDate.of(2022, 3, 1);
+            while (current.isBefore(LocalDate.of(2022, 12, 1))) {
+                if (current.getDayOfWeek() == DayOfWeek.TUESDAY) {
+                    result.add(current);
+                    current = current.plusDays(7);
+                } else {
+                    current = current.plusDays(1);
+                }
+            }
+            return result;
+        }
+        var days = Arrays.stream(listOfDays.split(",")).distinct().map(Integer::parseInt).toList();
+        return days.stream().map(d -> LocalDate.of(2022, month.getValue(), d)).collect(Collectors.toSet());
     }
 
     static String generateCalendar(List<String> events) {
@@ -91,34 +105,26 @@ public class Main {
                 VERSION:2.0
                 """;
         var footer = "END:VCALENDAR";
-        return String.format("%s%s%n%s", header, String.join(System.getProperty("line.separator"), events), footer);
+        var calendar = String.format("%s%s%n%s", header, String.join(System.getProperty("line.separator"), events), footer);
+        return calendar.replaceAll(System.getProperty("line.separator"), "\r\n"); // must be CRLF
     }
 
     static Event abfallEventForDate(LocalDate date, Abfall kind) {
+        System.out.printf("%s on %s%n", kind, date);
         var dtstamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd")) + 'T' + LocalTime.now()
                 .format(DateTimeFormatter.ofPattern("HHmmss")) + 'Z';
         var dtstart = date.format(DateTimeFormatter.BASIC_ISO_DATE);
-        return new Event.EventBuilder()//
-                .withUid(kind.name() + '-' + dtstart)
-                .withDescription(SOURCE_PDF)
-                .withDtstamp(dtstamp)
-                .withDtstart(dtstart)
-                .withDuration("P1D")
-                .withSummary(kind.getLabel())
-                .build();
+        return new Event(kind.name() + '-' + dtstart, // uid
+                SOURCE_PDF, // desc
+                dtstamp, // dtstamp
+                dtstart, // start
+                "P1D", // duration
+                kind.getLabel() // label
+        );
     }
 }
 
-@Data
-@Builder(setterPrefix = "with")
-class Event {
-    String dtstamp;
-    String dtstart;
-    String duration;
-    String summary;
-    String uid;
-    String description;
-
+record Event(String uid, String description, String dtstamp, String dtstart, String duration, String summary) {
     public String serialize() {
         StringJoiner joiner = new StringJoiner(System.getProperty("line.separator"))//
                 .add("BEGIN:VEVENT")

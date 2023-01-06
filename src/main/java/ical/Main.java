@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -43,7 +44,7 @@ enum Abfall {
 public class Main {
 
     //"http://www.muri-guemligen.ch/fileadmin/muriguemligench/02_Verwaltung/Bauverwaltung/Umwelt/Energiefachstelle/Entsorgungskalender_2021_Deutsch.pdf"
-    private static final String SOURCE_PDF = "https://tinyurl.com/...";
+    private static final String SOURCE_PDF = "https://tinyurl.com/3fbyuwsm";
 
     private static final Map<Abfall, String> ABFALL_TO_FILE = Map.of(//
             Abfall.GRUENABFUHR, "gruenabfuhr.properties",//
@@ -52,8 +53,10 @@ public class Main {
             Abfall.GLAS, "glas.properties",//
             Abfall.DEPONIE, "deponie.properties"//
     );
+    private static int year;
 
     public static void main(String[] args) throws IOException {
+        year = LocalDate.now().getYear();
         var path = Files.createTempFile("abfall-", ".ics");
 
         List<String> events = Arrays.stream(Abfall.values()).flatMap(Main::getAbfallEvents).toList();
@@ -90,8 +93,8 @@ public class Main {
     private static Set<LocalDate> getDate(Abfall kind, Month month, String listOfDays) {
         if (kind.periodicRuleApplies(month)) {
             var result = new HashSet<LocalDate>();
-            var current = LocalDate.of(2022, month.getValue(), 1);
-            while (current.isBefore(LocalDate.of(2022, month.getValue() + 1, 1))) {
+            var current = LocalDate.of(year, month.getValue(), 1);
+            while (current.isBefore(LocalDate.of(year, month.getValue() + 1, 1))) {
                 if (current.getDayOfWeek() == DayOfWeek.TUESDAY) {
                     result.add(current);
                     current = current.plusDays(7);
@@ -101,8 +104,10 @@ public class Main {
             }
             return result;
         }
-        var days = Arrays.stream(listOfDays.split(",")).distinct().map(Integer::parseInt).toList();
-        return days.stream().map(d -> LocalDate.of(2022, month.getValue(), d)).collect(Collectors.toSet());
+        var days = Arrays.stream(listOfDays.split(",")).distinct()
+                .filter(Predicate.not(String::isEmpty))
+                .map(Integer::parseInt).toList();
+        return days.stream().map(d -> LocalDate.of(year, month.getValue(), d)).collect(Collectors.toSet());
     }
 
     static String generateCalendar(List<String> events) {

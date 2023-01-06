@@ -31,6 +31,13 @@ enum Abfall {
     String getLabel() {
         return label;
     }
+
+    boolean periodicRuleApplies(Month month) {
+        if (this == GRUENABFUHR) {
+            return month.getValue() > Month.FEBRUARY.getValue() && month.getValue() < Month.DECEMBER.getValue();
+        }
+        return false;
+    }
 }
 
 public class Main {
@@ -81,10 +88,10 @@ public class Main {
     }
 
     private static Set<LocalDate> getDate(Abfall kind, Month month, String listOfDays) {
-        if (kind == Abfall.GRUENABFUHR && (month.getValue() > 2 || month.getValue() < 12)) {
+        if (kind.periodicRuleApplies(month)) {
             var result = new HashSet<LocalDate>();
-            var current = LocalDate.of(2022, 3, 1);
-            while (current.isBefore(LocalDate.of(2022, 12, 1))) {
+            var current = LocalDate.of(2022, month.getValue(), 1);
+            while (current.isBefore(LocalDate.of(2022, month.getValue() + 1, 1))) {
                 if (current.getDayOfWeek() == DayOfWeek.TUESDAY) {
                     result.add(current);
                     current = current.plusDays(7);

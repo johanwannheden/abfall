@@ -1,6 +1,6 @@
 package ical;
 
-import java.awt.Desktop;
+import java.awt.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.DayOfWeek;
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 enum Abfall {
-    GRUENABFUHR("Grünabfuhr"), PAPIER("Papier"), GLAS("Glas"), DEPONIE("Deponie"), METALL("Metall");
+    GRUENABFUHR("Grünabfuhr"), PAPIER("Papier"), GLAS("Glas"), DEPONIE("Deponie"), METALL("Metall"), PLASTIK("Plastik");
 
     private final String label;
 
@@ -43,15 +43,16 @@ enum Abfall {
 
 public class Main {
 
-    //"http://www.muri-guemligen.ch/fileadmin/muriguemligench/02_Verwaltung/Bauverwaltung/Umwelt/Energiefachstelle/Entsorgungskalender_2021_Deutsch.pdf"
-    private static final String SOURCE_PDF = "https://tinyurl.com/3fbyuwsm";
+    // https://www.muri-guemligen.ch/fileadmin/muriguemligench/00_Headerbilder/WEB_Gem_Muri_Entsorgungskalender2023_DE.pdf
+    private static final String SOURCE_PDF = "https://tinyurl.com/mrjz4ktr";
 
     private static final Map<Abfall, String> ABFALL_TO_FILE = Map.of(//
             Abfall.GRUENABFUHR, "gruenabfuhr.properties",//
             Abfall.PAPIER, "papier.properties",//
             Abfall.METALL, "metall.properties",//
             Abfall.GLAS, "glas.properties",//
-            Abfall.DEPONIE, "deponie.properties"//
+            Abfall.DEPONIE, "deponie.properties",//
+            Abfall.PLASTIK, "plastik.properties"//
     );
     private static int year;
 

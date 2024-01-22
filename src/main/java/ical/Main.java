@@ -21,7 +21,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 enum Abfall {
-    GRUENABFUHR("Grünabfuhr"), PAPIER("Papier"), GLAS("Glas"), DEPONIE("Deponie"), METALL("Metall"), PLASTIK("Plastik");
+    GRUENABFUHR("Grünabfuhr"),
+    PAPIER("Papier"),
+    GLAS("Glas"),
+    DEPONIE("Deponie"),
+    METALL("Metall"),
+    KUNSTSTOFF("Kunststoff");
 
     private final String label;
 
@@ -43,8 +48,8 @@ enum Abfall {
 
 public class Main {
 
-    // https://www.muri-guemligen.ch/fileadmin/muriguemligench/00_Headerbilder/WEB_Gem_Muri_Entsorgungskalender2023_DE.pdf
-    private static final String SOURCE_PDF = "https://tinyurl.com/mrjz4ktr";
+    // https://www.muri-guemligen.ch/fileadmin/muriguemligench/02_Verwaltung/Bauverwaltung/Hochbau_Planung_Liegenschaften/Baureglement/WEB_Gem_Muri_Entsorgungskalender2024_DE.pdf
+    private static final String SOURCE_PDF = "http://tinyurl.com/yx3dpmdj";
 
     private static final Map<Abfall, String> ABFALL_TO_FILE = Map.of(//
             Abfall.GRUENABFUHR, "gruenabfuhr.properties",//
@@ -52,7 +57,7 @@ public class Main {
             Abfall.METALL, "metall.properties",//
             Abfall.GLAS, "glas.properties",//
             Abfall.DEPONIE, "deponie.properties",//
-            Abfall.PLASTIK, "plastik.properties"//
+            Abfall.KUNSTSTOFF, "kunststoff.properties"//
     );
     private static int year;
 
@@ -93,22 +98,28 @@ public class Main {
 
     private static Set<LocalDate> getDate(Abfall kind, Month month, String listOfDays) {
         if (kind.periodicRuleApplies(month)) {
-            var result = new HashSet<LocalDate>();
-            var current = LocalDate.of(year, month.getValue(), 1);
-            while (current.isBefore(LocalDate.of(year, month.getValue() + 1, 1))) {
-                if (current.getDayOfWeek() == DayOfWeek.TUESDAY) {
-                    result.add(current);
-                    current = current.plusDays(7);
-                } else {
-                    current = current.plusDays(1);
-                }
-            }
-            return result;
+            return getDateFromEveryWeekOn(month, DayOfWeek.TUESDAY);
         }
-        var days = Arrays.stream(listOfDays.split(",")).distinct()
+        var days = Arrays.stream(listOfDays.split(","))
+                .distinct()
                 .filter(Predicate.not(String::isEmpty))
-                .map(Integer::parseInt).toList();
+                .map(Integer::parseInt)
+                .toList();
         return days.stream().map(d -> LocalDate.of(year, month.getValue(), d)).collect(Collectors.toSet());
+    }
+
+    private static Set<LocalDate> getDateFromEveryWeekOn(Month month, DayOfWeek dayOfWeek) {
+        var result = new HashSet<LocalDate>();
+        var current = LocalDate.of(year, month.getValue(), 1);
+        while (current.isBefore(LocalDate.of(year, month.getValue() + 1, 1))) {
+            if (current.getDayOfWeek() == dayOfWeek) {
+                result.add(current);
+                current = current.plusDays(7);
+            } else {
+                current = current.plusDays(1);
+            }
+        }
+        return result;
     }
 
     static String generateCalendar(List<String> events) {
@@ -118,8 +129,8 @@ public class Main {
                 VERSION:2.0
                 """;
         var footer = "END:VCALENDAR";
-        var calendar = String.format("%s%s%n%s", header, String.join(System.getProperty("line.separator"), events), footer);
-        return calendar.replaceAll(System.getProperty("line.separator"), "\r\n"); // must be CRLF
+        var calendar = String.format("%s%s%n%s", header, String.join(System.lineSeparator(), events), footer);
+        return calendar.replaceAll(System.lineSeparator(), "\r\n"); // must be CRLF
     }
 
     static Event abfallEventForDate(LocalDate date, Abfall kind) {
@@ -139,7 +150,7 @@ public class Main {
 
 record Event(String uid, String description, String dtstamp, String dtstart, String duration, String summary) {
     public String serialize() {
-        StringJoiner joiner = new StringJoiner(System.getProperty("line.separator"))//
+        StringJoiner joiner = new StringJoiner(System.lineSeparator())//
                 .add("BEGIN:VEVENT")
                 .add("UID:" + uid)
                 .add("DTSTAMP:" + dtstamp)

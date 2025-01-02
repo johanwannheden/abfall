@@ -49,7 +49,7 @@ enum Abfall {
 public class Main {
 
     // https://www.muri-guemligen.ch/fileadmin/muriguemligench/02_Verwaltung/Bauverwaltung/Hochbau_Planung_Liegenschaften/Baureglement/WEB_Gem_Muri_Entsorgungskalender2024_DE.pdf
-    private static final String SOURCE_PDF = "http://tinyurl.com/yx3dpmdj";
+    private static final String SOURCE_PDF = "https://tinyurl.com/yvh7bhn8";
 
     private static final Map<Abfall, String> ABFALL_TO_FILE = Map.of(//
             Abfall.GRUENABFUHR, "gruenabfuhr.properties",//

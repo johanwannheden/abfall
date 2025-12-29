@@ -3,16 +3,15 @@ package ical;
 import java.awt.Desktop;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -52,13 +51,12 @@ public class Main {
             Abfall.DEPONIE, "deponie.properties",//
             Abfall.KUNSTSTOFF, "kunststoff.properties"//
     );
-    private static int year;
 
     public static void main(String[] args) throws IOException {
-        year = LocalDate.now().getYear();
+        var year = getYearFromArgs(args);
         var path = Files.createTempFile("abfall-", ".ics");
 
-        List<String> events = Arrays.stream(Abfall.values()).flatMap(Main::getAbfallEvents).toList();
+        List<String> events = Arrays.stream(Abfall.values()).flatMap(kind -> getAbfallEvents(kind, year)).toList();
         var calendar = generateCalendar(events);
 
         Files.writeString(path, calendar);
@@ -66,48 +64,46 @@ public class Main {
         Desktop.getDesktop().open(path.toFile());
     }
 
-    static Stream<String> getAbfallEvents(Abfall kind) {
-        var datesForAbfall = getAbfallDates(kind);
+    private static int getYearFromArgs(String[] args) {
+        Objects.requireNonNull(args, "year must not be null");
+        if (args.length != 1) {
+            throw new IllegalArgumentException("year must be a single argument");
+        }
+        try {
+            return Integer.parseInt(args[0]);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("year must be a number");
+        }
+    }
+
+    static Stream<String> getAbfallEvents(Abfall kind, int year) {
+        var datesForAbfall = getAbfallDates(kind, year);
         if (datesForAbfall.isEmpty()) {
             throw new IllegalStateException(String.format("No dates for %s could be found", kind));
         }
         return datesForAbfall.stream().map(it -> abfallEventForDate(it, kind)).map(Event::serialize);
     }
 
-    static Set<LocalDate> getAbfallDates(Abfall kind) {
+    static Set<LocalDate> getAbfallDates(Abfall kind, int year) {
         try {
             var p = new Properties();
             p.load(Main.class.getResourceAsStream("/" + ABFALL_TO_FILE.get(kind)));
             return p.entrySet()
                     .stream()
-                    .flatMap(e -> getDate(Month.of(Integer.parseInt((String) e.getKey())), (String) e.getValue()).stream())
+                    .flatMap(e -> getDate(year, Month.of(Integer.parseInt((String) e.getKey())), (String) e.getValue()).stream())
                     .collect(Collectors.toSet());
         } catch (IOException e) {
             throw new RuntimeException("Failed reading Abfall dates", e);
         }
     }
 
-    private static Set<LocalDate> getDate(Month month, String listOfDays) {
+    private static Set<LocalDate> getDate(int year, Month month, String listOfDays) {
         var days = Arrays.stream(listOfDays.split(","))
                 .distinct()
                 .filter(Predicate.not(String::isEmpty))
                 .map(Integer::parseInt)
                 .toList();
         return days.stream().map(d -> LocalDate.of(year, month.getValue(), d)).collect(Collectors.toSet());
-    }
-
-    private static Set<LocalDate> getDateFromEveryWeekOn(Month month, DayOfWeek dayOfWeek) {
-        var result = new HashSet<LocalDate>();
-        var current = LocalDate.of(year, month.getValue(), 1);
-        while (current.isBefore(LocalDate.of(year, month.getValue() + 1, 1))) {
-            if (current.getDayOfWeek() == dayOfWeek) {
-                result.add(current);
-                current = current.plusDays(7);
-            } else {
-                current = current.plusDays(1);
-            }
-        }
-        return result;
     }
 
     static String generateCalendar(List<String> events) {

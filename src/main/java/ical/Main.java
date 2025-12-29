@@ -1,6 +1,6 @@
 package ical;
 
-import java.awt.*;
+import java.awt.Desktop;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.DayOfWeek;
@@ -37,19 +37,12 @@ enum Abfall {
     String getLabel() {
         return label;
     }
-
-    boolean periodicRuleApplies(Month month) {
-        if (this == GRUENABFUHR) {
-            return month.getValue() > Month.FEBRUARY.getValue() && month.getValue() < Month.DECEMBER.getValue();
-        }
-        return false;
-    }
 }
 
 public class Main {
 
-    // https://www.muri-guemligen.ch/fileadmin/muriguemligench/02_Verwaltung/Bauverwaltung/Hochbau_Planung_Liegenschaften/Baureglement/WEB_Gem_Muri_Entsorgungskalender2024_DE.pdf
-    private static final String SOURCE_PDF = "https://tinyurl.com/yvh7bhn8";
+    // https://www.muri-guemligen.ch/public/upload/assets/5636/20251113_Entsorgungskalender_2026_DE.pdf?fp=1
+    private static final String SOURCE_PDF = "https://tinyurl.com/2s3cdu6k";
 
     private static final Map<Abfall, String> ABFALL_TO_FILE = Map.of(//
             Abfall.GRUENABFUHR, "gruenabfuhr.properties",//
@@ -69,8 +62,6 @@ public class Main {
         var calendar = generateCalendar(events);
 
         Files.writeString(path, calendar);
-//        System.out.println(calendar);
-//        System.out.println(LocalTime.now());
         System.out.println(path);
         Desktop.getDesktop().open(path.toFile());
     }
@@ -89,17 +80,14 @@ public class Main {
             p.load(Main.class.getResourceAsStream("/" + ABFALL_TO_FILE.get(kind)));
             return p.entrySet()
                     .stream()
-                    .flatMap(e -> getDate(kind, Month.of(Integer.parseInt((String) e.getKey())), (String) e.getValue()).stream())
+                    .flatMap(e -> getDate(Month.of(Integer.parseInt((String) e.getKey())), (String) e.getValue()).stream())
                     .collect(Collectors.toSet());
         } catch (IOException e) {
             throw new RuntimeException("Failed reading Abfall dates", e);
         }
     }
 
-    private static Set<LocalDate> getDate(Abfall kind, Month month, String listOfDays) {
-        if (kind.periodicRuleApplies(month)) {
-            return getDateFromEveryWeekOn(month, DayOfWeek.TUESDAY);
-        }
+    private static Set<LocalDate> getDate(Month month, String listOfDays) {
         var days = Arrays.stream(listOfDays.split(","))
                 .distinct()
                 .filter(Predicate.not(String::isEmpty))
